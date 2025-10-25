@@ -25,14 +25,11 @@ const (
 	dbFile = "totally_not_my_privateKeys.db"
 )
 
-// --- DB bootstrap & helpers ---
-
 func openDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return nil, err
 	}
-	// Create schema if missing
 	const schema = `
 	CREATE TABLE IF NOT EXISTS keys(
 		kid INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,11 +90,9 @@ func parseRSAPrivateKeyFromPEM(pemBytes []byte) (*rsa.PrivateKey, error) {
 	if block == nil {
 		return nil, errors.New("invalid PEM")
 	}
-	// PKCS#1
 	if pk, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
 		return pk, nil
 	}
-	// PKCS#8 fallback
 	keyAny, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err == nil {
 		if pk, ok := keyAny.(*rsa.PrivateKey); ok {
@@ -152,8 +147,6 @@ func getAllUnexpiredKeys(db *sql.DB) ([]dbKey, error) {
 	return out, rows.Err()
 }
 
-// --- HTTP handlers ---
-
 func main() {
 	db, err := openDB()
 	if err != nil {
@@ -186,9 +179,6 @@ func authHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The grader may send Basic auth and JSON body; we don't validate creds for this project.
-	// We just need to read a key (expired or valid), sign, and return a JWT.
-
 	wantExpired := false
 	if v := r.URL.Query().Get("expired"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
@@ -214,7 +204,6 @@ func authHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For unexpired issue a future exp; for expired set exp in the past.
 	exp := time.Now().Add(15 * time.Minute).Unix()
 	if wantExpired {
 		exp = time.Now().Add(-15 * time.Minute).Unix()
